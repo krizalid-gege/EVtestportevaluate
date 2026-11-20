@@ -5,16 +5,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Zap,
-  QrCode,
   Receipt,
-  ShieldCheck,
   LogIn,
   LogOut,
   Activity,
   ArrowRight,
-  AlertTriangle,
 } from "lucide-react";
-import { useLanguage, LangCode, localizeOrderStatus } from "./LanguageProvider";
+import { useLanguage, LangCode } from "./LanguageProvider";
 
 export interface AuthMeUser {
   id: string;
@@ -22,7 +19,6 @@ export interface AuthMeUser {
   displayName?: string | null;
   status: "UNVERIFIED" | "ACTIVE" | "DISABLED";
   roles: string[];
-  siteCodes?: string[];
 }
 
 export interface ActiveOrderSummary {
@@ -32,18 +28,20 @@ export interface ActiveOrderSummary {
   chargedEnergyWh: number;
   totalAmountSen: number;
   qrToken?: string | null;
-  chargerOcppId?: string | null;
 }
 
 export function Navbar() {
-  const { lang, setLang, t } = useLanguage();
+  const { lang, setLang } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
 
   const [user, setUser] = useState<AuthMeUser | null>(null);
   const [activeOrder, setActiveOrder] = useState<ActiveOrderSummary | null>(null);
 
+  const isAdminRoute = pathname?.startsWith("/admin");
+
   const fetchAuthAndActiveSession = useCallback(async () => {
+    if (isAdminRoute) return;
     try {
       const res = await fetch("/api/auth/me", { cache: "no-store" });
       if (!res.ok) {
@@ -55,7 +53,6 @@ export function Navbar() {
       const currentUser: AuthMeUser | null = data?.user || null;
       setUser(currentUser);
 
-      // Check if /api/auth/me returned activeOrder directly, otherwise check /api/orders
       if (data?.activeOrder) {
         const qr =
           data.activeOrder?.connector?.qrCodes?.[0]?.qrToken ||
@@ -68,61 +65,30 @@ export function Navbar() {
           chargedEnergyWh: data.activeOrder.chargedEnergyWh ?? 0,
           totalAmountSen: data.activeOrder.totalAmountSen ?? 0,
           qrToken: qr,
-          chargerOcppId: data.activeOrder?.charger?.ocppId || null,
         });
-      } else if (currentUser) {
-        const ordRes = await fetch("/api/orders", { cache: "no-store" });
-        if (ordRes.ok) {
-          const ordData = await ordRes.json();
-          const list: any[] = ordData?.orders || [];
-          const ongoing = list.find((o) =>
-            ["AUTHORIZING", "READY_TO_START", "STARTING", "CHARGING", "STOPPING", "SETTLING"].includes(
-              o.status
-            )
-          );
-          if (ongoing) {
-            const qr =
-              ongoing?.connector?.qrCodes?.[0]?.qrToken ||
-              ongoing?.qrToken ||
-              "K9mP2xQ8vL4n";
-            setActiveOrder({
-              id: ongoing.id,
-              orderNo: ongoing.orderNo,
-              status: ongoing.status,
-              chargedEnergyWh: ongoing.chargedEnergyWh ?? 0,
-              totalAmountSen: ongoing.totalAmountSen ?? 0,
-              qrToken: qr,
-              chargerOcppId: ongoing?.charger?.ocppId || null,
-            });
-          } else {
-            setActiveOrder(null);
-          }
-        }
       } else {
         setActiveOrder(null);
       }
     } catch {
-      // ignore network glitches during background polling
+      // ignore transient error
     }
-  }, []);
+  }, [isAdminRoute]);
 
   useEffect(() => {
     fetchAuthAndActiveSession();
-    const timer = setInterval(fetchAuthAndActiveSession, 4000);
-    const onVis = () => {
-      if (document.visibilityState === "visible") {
-        fetchAuthAndActiveSession();
-      }
-    };
+    const timer = setInterval(fetchAuthAndActiveSession, 3000);
     const onAuthChanged = () => fetchAuthAndActiveSession();
-    document.addEventListener("visibilitychange", onVis);
     window.addEventListener("ev-cpo-auth-changed", onAuthChanged);
     return () => {
       clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("ev-cpo-auth-changed", onAuthChanged);
     };
   }, [fetchAuthAndActiveSession, pathname]);
+
+  // Do NOT render the consumer client navbar inside the independent Operator Admin Console (/admin)
+  if (isAdminRoute) {
+    return null;
+  }
 
   const handleLogout = async () => {
     try {
@@ -136,106 +102,70 @@ export function Navbar() {
     router.push("/login");
   };
 
-  const roles = user?.roles || [];
-  const isStaffOrAdmin =
-    roles.includes("ADMIN") ||
-    roles.includes("CUSTOMER_SERVICE") ||
-    roles.includes("SITE_STAFF");
-
-  const getRoleBadge = () => {
-    if (!user) return null;
-    if (roles.includes("ADMIN")) {
-      return <span className="badge badge-purple">{t.roleAdmin}</span>;
-    }
-    if (roles.includes("CUSTOMER_SERVICE")) {
-      return <span className="badge badge-blue">{t.roleCustomerService}</span>;
-    }
-    if (roles.includes("SITE_STAFF")) {
-      return <span className="badge badge-cyan">{t.roleSiteStaff}</span>;
-    }
-    if (user.status === "UNVERIFIED") {
-      return (
-        <span className="badge badge-amber">
-          <AlertTriangle size={12} />
-          {t.roleUnverifiedDriver}
-        </span>
-      );
-    }
-    return <span className="badge badge-emerald">{t.roleVerifiedDriver}</span>;
-  };
-
   const formatRm = (sen: number) => `RM ${(Math.round(sen || 0) / 100).toFixed(2)}`;
-  const formatKwh = (wh: number) => `${(Math.round(wh || 0) / 1000).toFixed(3)} kWh`;
+  const formatKwh = (wh: number) => `${(Math.round(wh || 0) / 1000).toFixed(2)} kWh`;
+
+  const labels = {
+    brand: lang === "zh" ? "MY-EV 充电客户端" : lang === "ms" ? "Aplikasi Pengecasan EV" : "MY-EV Charging App",
+    selectGun: lang === "zh" ? "选择充电枪" : lang === "ms" ? "Pilih Pengecas" : "Select Charger",
+    myOrders: lang === "zh" ? "我的订单" : lang === "ms" ? "Pesanan Saya" : "My Orders",
+    login: lang === "zh" ? "登录 / 注册" : lang === "ms" ? "Log Masuk" : "Login / Sign Up",
+    logout: lang === "zh" ? "退出" : lang === "ms" ? "Log Keluar" : "Logout",
+    chargingNow: lang === "zh" ? "正在充电中" : lang === "ms" ? "Sedang Mengecas" : "Charging in Progress",
+    backToCharge: lang === "zh" ? "查看充电进度" : lang === "ms" ? "Lihat Kemajuan" : "View Charging",
+  };
 
   return (
     <header className="navbar-wrapper">
-      {activeOrder && (
+      {activeOrder && !pathname?.startsWith("/c/") && (
         <div className="active-session-banner">
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
             <Activity size={16} />
-            <strong>{t.activeSessionTitle}:</strong>
-            <span className="mono">{activeOrder.orderNo}</span>
-            <span>({localizeOrderStatus(activeOrder.status, lang)})</span>
-            <span>• {formatKwh(activeOrder.chargedEnergyWh)}</span>
+            <strong>{labels.chargingNow}:</strong>
+            <span>{formatKwh(activeOrder.chargedEnergyWh)}</span>
             <span>• {formatRm(activeOrder.totalAmountSen)}</span>
           </span>
           <Link
             href={activeOrder.qrToken ? `/c/${activeOrder.qrToken}` : `/orders/${activeOrder.id}`}
             className="active-session-cta"
           >
-            {t.activeSessionJumpBtn}
+            {labels.backToCharge}
             <ArrowRight size={14} />
           </Link>
         </div>
       )}
 
-      <div className="navbar-inner">
+      <div className="navbar-inner" style={{ maxWidth: "560px" }}>
         <Link href="/" className="brand-link">
           <span className="brand-icon">
-            <Zap size={19} />
+            <Zap size={18} />
           </span>
-          <div>
-            <div style={{ lineHeight: 1.15 }}>{t.brandTitle}</div>
-            <div style={{ fontSize: "0.71rem", color: "var(--text-muted)", fontWeight: 500 }}>
-              {t.brandSubtitle}
-            </div>
-          </div>
+          <span style={{ fontSize: "1rem", fontWeight: 800 }}>{labels.brand}</span>
         </Link>
 
         <div className="nav-links">
-          <Link href="/" className={`nav-pill ${pathname === "/" ? "active" : ""}`}>
-            <QrCode size={15} />
-            <span>{t.navHome}</span>
-          </Link>
+          {user && (
+            <>
+              <Link href="/" className={`nav-pill ${pathname === "/" ? "active" : ""}`}>
+                <Zap size={14} />
+                <span>{labels.selectGun}</span>
+              </Link>
+              <Link
+                href="/orders"
+                className={`nav-pill ${pathname?.startsWith("/orders") ? "active" : ""}`}
+              >
+                <Receipt size={14} />
+                <span>{labels.myOrders}</span>
+              </Link>
+            </>
+          )}
 
-          <Link
-            href="/orders"
-            className={`nav-pill ${pathname?.startsWith("/orders") ? "active" : ""}`}
-          >
-            <Receipt size={15} />
-            <span>{t.navOrders}</span>
-          </Link>
-
-          <Link
-            href="/admin"
-            className={`nav-pill ${pathname?.startsWith("/admin") ? "active" : ""}`}
-            style={
-              isStaffOrAdmin
-                ? { borderColor: "rgba(192, 132, 252, 0.55)", color: "#e9d5ff" }
-                : undefined
-            }
-          >
-            <ShieldCheck size={15} />
-            <span>{t.navAdminConsole}</span>
-          </Link>
-
-          {/* Instant 3-Language Switcher: EN | BM | 中文 (REQ-ADM-006 / Criterion 7) */}
           <div className="lang-switcher" role="group" aria-label="Language Switcher">
             {(
               [
+                { code: "zh", label: "中文" },
                 { code: "en", label: "EN" },
                 { code: "ms", label: "BM" },
-                { code: "zh", label: "中文" },
               ] as Array<{ code: LangCode; label: string }>
             ).map((item) => (
               <button
@@ -250,40 +180,22 @@ export function Navbar() {
           </div>
 
           {user ? (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
-              {getRoleBadge()}
-              <Link
-                href="/login"
-                className="mono"
-                style={{
-                  fontSize: "0.78rem",
-                  color: "var(--text-secondary)",
-                  maxWidth: "155px",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={user.email}
-              >
-                {user.email}
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="nav-pill"
-                title={t.navLogout}
-              >
-                <LogOut size={14} />
-                <span>{t.navLogout}</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="nav-pill"
+              title={user.email}
+            >
+              <LogOut size={14} />
+              <span>{labels.logout}</span>
+            </button>
           ) : (
             <Link
               href="/login"
               className={`nav-pill ${pathname === "/login" ? "active" : ""}`}
             >
-              <LogIn size={15} />
-              <span>{t.navLogin}</span>
+              <LogIn size={14} />
+              <span>{labels.login}</span>
             </Link>
           )}
         </div>

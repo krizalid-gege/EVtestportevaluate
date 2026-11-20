@@ -58,11 +58,16 @@ export interface PwaTranslations {
   tabRegister: string;
   tabVerifyEmail: string;
   tabResetPassword: string;
+  authTabLogin: string;
+  authTabRegister: string;
+  authTabVerify: string;
+  authTabReset: string;
   emailLabel: string;
   passwordLabel: string;
   displayNameLabel: string;
   phoneOptionalLabel: string;
   verificationCodeLabel: string;
+  verifyCodeLabel: string;
   verificationCodeHint: string;
   resetTokenLabel: string;
   newPasswordLabel: string;
@@ -72,6 +77,7 @@ export interface PwaTranslations {
   resendCodeBtn: string;
   requestResetBtn: string;
   confirmResetBtn: string;
+  resetSubmitBtn: string;
   quickAccountSwitcherTitle: string;
   quickAccountSwitcherDesc: string;
   quickSwitchBtn: string;
@@ -235,11 +241,16 @@ export const PWA_DICTIONARY: Record<LangCode, PwaTranslations> = {
     tabRegister: "Register",
     tabVerifyEmail: "Verify Email (6-Digit)",
     tabResetPassword: "Reset Password",
+    authTabLogin: "Sign In",
+    authTabRegister: "Register",
+    authTabVerify: "Verify",
+    authTabReset: "Reset",
     emailLabel: "Email Address",
     passwordLabel: "Password",
     displayNameLabel: "Full Name / Display Name",
     phoneOptionalLabel: "Mobile Phone (Optional, +60)",
     verificationCodeLabel: "6-Digit Verification Code",
+    verifyCodeLabel: "Verification Code",
     verificationCodeHint: "Demo verification code is 888666 (also logged to EmailDeliveries table)",
     resetTokenLabel: "6-Digit Reset Code",
     newPasswordLabel: "New Password (min 6 chars)",
@@ -249,6 +260,7 @@ export const PWA_DICTIONARY: Record<LangCode, PwaTranslations> = {
     resendCodeBtn: "Resend 6-Digit Code",
     requestResetBtn: "Send Password Reset Code",
     confirmResetBtn: "Confirm Password Reset",
+    resetSubmitBtn: "Confirm Password Reset",
     quickAccountSwitcherTitle: "Phase 1A Demo Quick Account Switcher",
     quickAccountSwitcherDesc: "One-click instant sign-in for acceptance testing across all 5 seeded roles:",
     quickSwitchBtn: "Instant Sign-In",
@@ -413,11 +425,16 @@ export const PWA_DICTIONARY: Record<LangCode, PwaTranslations> = {
     tabRegister: "Daftar Baru",
     tabVerifyEmail: "Sahkan E-mel (6-Digit)",
     tabResetPassword: "Set Semula Kata Laluan",
+    authTabLogin: "Log Masuk",
+    authTabRegister: "Daftar",
+    authTabVerify: "Sahkan",
+    authTabReset: "Set Semula",
     emailLabel: "Alamat E-mel",
     passwordLabel: "Kata Laluan",
     displayNameLabel: "Nama Penuh / Nama Paparan",
     phoneOptionalLabel: "No. Telefon Bimbit (Pilihan, +60)",
     verificationCodeLabel: "Kod Pengesahan 6-Digit",
+    verifyCodeLabel: "Kod Pengesahan",
     verificationCodeHint: "Kod pengesahan demo ialah 888666 (juga direkodkan dalam jadual EmailDeliveries)",
     resetTokenLabel: "Kod Set Semula 6-Digit",
     newPasswordLabel: "Kata Laluan Baru (min 6 aksara)",
@@ -427,6 +444,7 @@ export const PWA_DICTIONARY: Record<LangCode, PwaTranslations> = {
     resendCodeBtn: "Hantar Semula Kod 6-Digit",
     requestResetBtn: "Hantar Kod Set Semula",
     confirmResetBtn: "Sahkan Kata Laluan Baru",
+    resetSubmitBtn: "Sahkan Kata Laluan Baru",
     quickAccountSwitcherTitle: "Penukar Akaun Pantas Demo Fasa 1A",
     quickAccountSwitcherDesc: "Log masuk 1-klik untuk ujian penerimaan merentasi 5 peranan:",
     quickSwitchBtn: "Log Masuk Segera",
@@ -591,11 +609,16 @@ export const PWA_DICTIONARY: Record<LangCode, PwaTranslations> = {
     tabRegister: "邮箱注册",
     tabVerifyEmail: "邮箱验证码 (6位)",
     tabResetPassword: "密码重置",
+    authTabLogin: "登录",
+    authTabRegister: "注册",
+    authTabVerify: "验证",
+    authTabReset: "重置",
     emailLabel: "电子邮箱",
     passwordLabel: "登录密码",
     displayNameLabel: "姓名 / 昵称",
     phoneOptionalLabel: "手机号码 (选填预留, +60)",
     verificationCodeLabel: "6 位邮箱验证码",
+    verifyCodeLabel: "邮箱验证码",
     verificationCodeHint: "演示环境固定通用验证码为 888666（同时记录于邮件投递表）",
     resetTokenLabel: "6 位重置验证码",
     newPasswordLabel: "设置新密码 (至少 6 位)",
@@ -605,6 +628,7 @@ export const PWA_DICTIONARY: Record<LangCode, PwaTranslations> = {
     resendCodeBtn: "重新发送验证码",
     requestResetBtn: "发送密码重置码",
     confirmResetBtn: "确认重置密码",
+    resetSubmitBtn: "确认重置密码",
     quickAccountSwitcherTitle: "Phase 1A 五角色一键切换验收台",
     quickAccountSwitcherDesc: "点击即可免密一键切换以下 5 个预置角色账号：",
     quickSwitchBtn: "一键切换登录",

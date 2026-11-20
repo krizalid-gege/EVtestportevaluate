@@ -1,259 +1,293 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Zap,
-  QrCode,
-  ShieldCheck,
-  UserCheck,
-  Wifi,
-  WifiOff,
-  Cpu,
-  Gauge,
+  Plug,
   ArrowRight,
-  AlertCircle,
-  Clock,
+  LogIn,
+  UserPlus,
+  Receipt,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 
-export default function LandingPage() {
-  const { t } = useLanguage();
+export default function ClientHomePage() {
+  const { lang } = useLanguage();
+  const router = useRouter();
 
-  const seededChargers = [
+  const [user, setUser] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [quickLoggingIn, setQuickLoggingIn] = useState(false);
+
+  useEffect(() => {
+    // Default to Chinese if first visit so user can read immediately
+    if (typeof window !== "undefined" && !localStorage.getItem("ev_cpo_lang_init")) {
+      localStorage.setItem("ev_cpo_lang_init", "1");
+    }
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        setUser(d?.user || null);
+      })
+      .catch(() => setUser(null))
+      .finally(() => setLoadingAuth(false));
+  }, []);
+
+  const handleQuickDriverLogin = async () => {
+    setQuickLoggingIn(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "driver@evcpo.my",
+          password: "Password123!",
+          quickSwitch: true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        window.dispatchEvent(new Event("ev-cpo-auth-changed"));
+      }
+    } finally {
+      setQuickLoggingIn(false);
+    }
+  };
+
+  const copy = {
+    welcomeTitle:
+      lang === "zh"
+        ? "欢迎使用自助充电"
+        : lang === "ms"
+        ? "Selamat Datang ke Pengecasan EV"
+        : "Welcome to EV Charging",
+    welcomeSub:
+      lang === "zh"
+        ? "请先登录或注册账号，然后选择充电枪开始充电"
+        : lang === "ms"
+        ? "Sila log masuk atau daftar akaun, kemudian pilih pengecas"
+        : "Please login or register, then select a charging gun to start",
+    loginBtn:
+      lang === "zh" ? "车主登录 / 注册" : lang === "ms" ? "Log Masuk / Daftar" : "Driver Login / Register",
+    quickDriverBtn:
+      lang === "zh"
+        ? "⚡ 一键登录测试车主账号 (driver@evcpo.my)"
+        : lang === "ms"
+        ? "⚡ Log Masuk Pantas Akaun Pemandu"
+        : "⚡ 1-Click Demo Driver Login (driver@evcpo.my)",
+    selectGunHeading:
+      lang === "zh"
+        ? "请选择充电枪"
+        : lang === "ms"
+        ? "Sila Pilih Pengecas"
+        : "Select a Charging Gun",
+    selectGunSub:
+      lang === "zh"
+        ? "吉隆坡双子塔自营示范站 • RM 1.50 / 度 (含服务费)"
+        : lang === "ms"
+        ? "Stesen KLCC • RM 1.50 / kWh"
+        : "KLCC Station • RM 1.50 / kWh",
+    gun1Name:
+      lang === "zh"
+        ? "1号充电枪 (国标直流 20kW)"
+        : lang === "ms"
+        ? "Pengecas #1 (GB/T DC 20kW)"
+        : "Charging Gun #1 (GB/T DC 20kW)",
+    gun2Name:
+      lang === "zh"
+        ? "2号充电枪 (欧标直流 20kW)"
+        : lang === "ms"
+        ? "Pengecas #2 (CCS2 DC 20kW)"
+        : "Charging Gun #2 (CCS2 DC 20kW)",
+    gun3Name:
+      lang === "zh"
+        ? "3号充电枪 (八打灵再也站)"
+        : lang === "ms"
+        ? "Pengecas #3 (Stesen PJ)"
+        : "Charging Gun #3 (PJ Station)",
+    readyBadge:
+      lang === "zh" ? "已插枪就绪" : lang === "ms" ? "Sedia Mengecas" : "Plugged In & Ready",
+    offlineBadge:
+      lang === "zh" ? "设备离线" : lang === "ms" ? "Luar Talian" : "Offline",
+    priceText:
+      lang === "zh"
+        ? "电价：RM 1.50 / 度 (电费 RM 1.20 + 服务费 RM 0.30)"
+        : lang === "ms"
+        ? "Harga: RM 1.50 / kWh"
+        : "Rate: RM 1.50 / kWh (Energy RM 1.20 + Service RM 0.30)",
+    enterGunBtn:
+      lang === "zh" ? "选择此枪充电" : lang === "ms" ? "Pilih Pengecas Ini" : "Select This Gun",
+    offlineBtn:
+      lang === "zh" ? "离线不可用" : lang === "ms" ? "Tidak Tersedia" : "Unavailable (Offline)",
+    myOrdersBtn:
+      lang === "zh" ? "查看我的历史充电订单" : lang === "ms" ? "Lihat Pesanan Saya" : "View My Charging Orders",
+  };
+
+  const guns = [
     {
-      ocppId: "MY-KL-DC-001",
+      id: "1",
+      name: copy.gun1Name,
       qrToken: "K9mP2xQ8vL4n",
-      standard: "GB/T 27930 DC",
-      power: "20 kW (200-1000Vdc)",
-      model: "Techone GPEV20-BG102-S1P-EA",
-      secc: "QuanYao QY-SECC-02",
       online: true,
-      title: t.charger1Title,
-      desc: t.charger1Desc,
     },
     {
-      ocppId: "MY-KL-DC-002",
+      id: "2",
+      name: copy.gun2Name,
       qrToken: "C7xR4tN9wM2p",
-      standard: "CCS2 DC",
-      power: "20 kW (200-1000Vdc)",
-      model: "Techone GPEV20-BG102-S1P-EA",
-      secc: "QuanYao QY-SECC-02",
       online: true,
-      title: t.charger2Title,
-      desc: t.charger2Desc,
     },
     {
-      ocppId: "MY-PJ-DC-003",
+      id: "3",
+      name: copy.gun3Name,
       qrToken: "P3zW8qB5jH6k",
-      standard: "CCS2 DC",
-      power: "20 kW (200-1000Vdc)",
-      model: "Techone GPEV20-BG102-S1P-EA",
-      secc: "QuanYao QY-SECC-02",
       online: false,
-      title: t.charger3Title,
-      desc: t.charger3Desc,
     },
   ];
 
+  if (loadingAuth) {
+    return (
+      <div className="container-narrow" style={{ paddingTop: "3rem", textAlign: "center" }}>
+        <p style={{ color: "var(--text-secondary)" }}>Loading...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="container-pwa">
-      {/* Phase 1A Simulated Payment Notice Banner */}
-      <div className="sim-payment-banner" style={{ marginBottom: "1.25rem" }}>
-        <AlertCircle size={18} style={{ flexShrink: 0 }} />
-        <div>
-          <div>{t.simulatedPaymentNotice}</div>
-          <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)" }}>
-            {t.simulatedPaymentSub} • <Clock size={12} style={{ display: "inline" }} />{" "}
-            {t.timezoneLabel}
+    <div className="container-narrow" style={{ maxWidth: "480px", paddingTop: "1.5rem" }}>
+      {/* Step 1: If not logged in, only show clean Login / Register prompt */}
+      {!user ? (
+        <div className="card-elevated" style={{ padding: "2rem 1.5rem", textAlign: "center" }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: "rgba(16, 185, 129, 0.15)",
+              color: "var(--emerald-400)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "1rem",
+            }}
+          >
+            <Zap size={28} />
+          </div>
+          <h1 style={{ fontSize: "1.4rem", fontWeight: 800, marginBottom: "0.5rem" }}>
+            {copy.welcomeTitle}
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
+            {copy.welcomeSub}
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={handleQuickDriverLogin}
+              disabled={quickLoggingIn}
+              className="btn btn-primary btn-lg btn-full"
+            >
+              {quickLoggingIn ? "..." : copy.quickDriverBtn}
+            </button>
+
+            <Link href="/login" className="btn btn-secondary btn-full">
+              <LogIn size={16} />
+              <span>{copy.loginBtn}</span>
+            </Link>
+
+            <Link href="/login?tab=register" className="btn btn-outline btn-full">
+              <UserPlus size={16} />
+              <span>{lang === "zh" ? "注册新账号" : lang === "ms" ? "Daftar Akaun" : "Create Account"}</span>
+            </Link>
           </div>
         </div>
-      </div>
+      ) : (
+        /* Step 2: Logged in -> Cleanly select a Charging Gun */
+        <div>
+          <div style={{ marginBottom: "1.25rem" }}>
+            <h1 style={{ fontSize: "1.35rem", fontWeight: 800, marginBottom: "0.25rem" }}>
+              {copy.selectGunHeading}
+            </h1>
+            <p style={{ fontSize: "0.86rem", color: "var(--text-secondary)" }}>
+              {copy.selectGunSub}
+            </p>
+          </div>
 
-      {/* Hero Section */}
-      <section className="card-emerald" style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
-          <span className="badge badge-emerald">
-            <Zap size={13} />
-            {t.heroBadge}
-          </span>
-          <span className="badge badge-cyan">MYR (RM) • Integer Sen & Wh</span>
-          <span className="badge badge-neutral">EN | BM | 中文</span>
-        </div>
-
-        <h1
-          style={{
-            fontSize: "clamp(1.45rem, 3vw, 2.05rem)",
-            fontWeight: 800,
-            marginBottom: "0.6rem",
-            lineHeight: 1.2,
-          }}
-        >
-          {t.heroTitle}
-        </h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", maxWidth: "780px" }}>
-          {t.heroDesc}
-        </p>
-      </section>
-
-      {/* Quick Scan Charger Entry Cards */}
-      <section style={{ marginBottom: "1.75rem" }}>
-        <div style={{ marginBottom: "0.95rem" }}>
-          <h2 style={{ fontSize: "1.2rem", fontWeight: 800 }}>{t.quickScanTitle}</h2>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{t.quickScanSubtitle}</p>
-        </div>
-
-        <div className="grid-3">
-          {seededChargers.map((c) => (
-            <div
-              key={c.ocppId}
-              className={c.online ? "card-elevated" : "card"}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                gap: "1rem",
-                borderColor: c.online
-                  ? "rgba(16, 185, 129, 0.38)"
-                  : "rgba(239, 68, 68, 0.35)",
-              }}
-            >
-              <div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {guns.map((gun) => (
+              <div
+                key={gun.qrToken}
+                className={gun.online ? "card-elevated" : "card"}
+                style={{
+                  padding: "1.25rem",
+                  borderColor: gun.online
+                    ? "rgba(16, 185, 129, 0.45)"
+                    : "rgba(239, 68, 68, 0.25)",
+                }}
+              >
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    gap: "0.5rem",
-                    marginBottom: "0.65rem",
+                    marginBottom: "0.5rem",
                   }}
                 >
-                  <span className="badge badge-neutral mono">{c.ocppId}</span>
-                  {c.online ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <Plug
+                      size={20}
+                      style={{ color: gun.online ? "var(--emerald-400)" : "var(--text-muted)" }}
+                    />
+                    <span style={{ fontSize: "1.05rem", fontWeight: 800 }}>{gun.name}</span>
+                  </div>
+                  {gun.online ? (
                     <span className="badge badge-emerald">
-                      <Wifi size={12} />
-                      ONLINE
+                      <CheckCircle2 size={12} />
+                      {copy.readyBadge}
                     </span>
                   ) : (
                     <span className="badge badge-red">
-                      <WifiOff size={12} />
-                      OFFLINE
+                      <XCircle size={12} />
+                      {copy.offlineBadge}
                     </span>
                   )}
                 </div>
 
-                <h3 style={{ fontSize: "1.02rem", fontWeight: 800, marginBottom: "0.35rem" }}>
-                  {c.title}
-                </h3>
                 <p
                   style={{
-                    fontSize: "0.81rem",
-                    color: "var(--text-muted)",
-                    marginBottom: "0.85rem",
+                    fontSize: "0.84rem",
+                    color: "var(--text-secondary)",
+                    marginBottom: "1rem",
                   }}
                 >
-                  {c.desc}
+                  {copy.priceText}
                 </p>
 
-                <div
-                  style={{
-                    background: "#070d17",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-sm)",
-                    padding: "0.65rem 0.75rem",
-                    fontSize: "0.78rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.32rem",
-                  }}
+                <button
+                  type="button"
+                  onClick={() => router.push(`/c/${gun.qrToken}`)}
+                  className={`btn btn-full ${gun.online ? "btn-primary btn-lg" : "btn-secondary"}`}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--text-muted)" }}>
-                      <Cpu size={12} style={{ display: "inline", marginRight: 4 }} />
-                      {t.hardwareSpecLabel}:
-                    </span>
-                    <span className="mono" style={{ fontWeight: 700 }}>
-                      {c.standard} • 20kW
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--text-muted)" }}>
-                      <Gauge size={12} style={{ display: "inline", marginRight: 4 }} />
-                      {t.seccModuleLabel}:
-                    </span>
-                    <span className="mono">{c.secc}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--text-muted)" }}>
-                      <QrCode size={12} style={{ display: "inline", marginRight: 4 }} />
-                      {t.qrTokenLabel}:
-                    </span>
-                    <span className="mono" style={{ color: "var(--emerald-400)", fontWeight: 700 }}>
-                      /c/{c.qrToken}
-                    </span>
-                  </div>
-                </div>
+                  <Zap size={17} />
+                  <span>{gun.online ? copy.enterGunBtn : copy.offlineBtn}</span>
+                  <ArrowRight size={16} />
+                </button>
               </div>
-
-              <Link
-                href={`/c/${c.qrToken}`}
-                className={`btn btn-full ${c.online ? "btn-primary" : "btn-secondary"}`}
-              >
-                <QrCode size={16} />
-                <span>{c.online ? t.scanToChargeBtn : t.testOfflineBtn}</span>
-                <ArrowRight size={15} />
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Operations Console & Demo Account Switcher Launch Cards */}
-      <section className="grid-2">
-        <div className="card-elevated" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "1rem" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <span className="badge badge-purple">
-                <ShieldCheck size={13} />
-                REQ-ADM-001 ~ 006
-              </span>
-            </div>
-            <h3 style={{ fontSize: "1.08rem", fontWeight: 800, marginBottom: "0.4rem" }}>
-              {t.adminPortalCardTitle}
-            </h3>
-            <p style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>
-              {t.adminPortalCardDesc}
-            </p>
+            ))}
           </div>
-          <Link href="/admin" className="btn btn-outline btn-full">
-            <ShieldCheck size={16} />
-            <span>{t.openAdminBtn}</span>
-            <ArrowRight size={15} />
-          </Link>
-        </div>
 
-        <div className="card-elevated" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "1rem" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <span className="badge badge-cyan">
-                <UserCheck size={13} />
-                REQ-ACC-001 ~ 005
-              </span>
-            </div>
-            <h3 style={{ fontSize: "1.08rem", fontWeight: 800, marginBottom: "0.4rem" }}>
-              {t.accountCardTitle}
-            </h3>
-            <p style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>
-              {t.accountCardDesc}
-            </p>
+          <div style={{ marginTop: "1.25rem" }}>
+            <Link href="/orders" className="btn btn-secondary btn-full">
+              <Receipt size={16} />
+              <span>{copy.myOrdersBtn}</span>
+            </Link>
           </div>
-          <Link href="/login" className="btn btn-secondary btn-full">
-            <UserCheck size={16} />
-            <span>{t.openLoginBtn}</span>
-            <ArrowRight size={15} />
-          </Link>
         </div>
-      </section>
+      )}
     </div>
   );
 }

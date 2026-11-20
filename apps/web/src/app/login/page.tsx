@@ -7,12 +7,9 @@ import {
   UserPlus,
   MailCheck,
   KeyRound,
-  Shield,
-  UserCheck,
+  Zap,
   AlertTriangle,
   CheckCircle2,
-  ArrowRight,
-  QrCode,
 } from "lucide-react";
 import { useLanguage, localizeApiMessage } from "@/components/LanguageProvider";
 
@@ -22,7 +19,7 @@ function LoginContent() {
   const { lang, t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get("returnTo") || "";
+  const returnTo = searchParams.get("returnTo") || "/";
   const initialTab = (searchParams.get("tab") as AuthTab) || "login";
 
   const [activeTab, setActiveTab] = useState<AuthTab>(
@@ -30,12 +27,12 @@ function LoginContent() {
   );
 
   const [email, setEmail] = useState("driver@evcpo.my");
-  const [password, setPassword] = useState("Demo1234!");
+  const [password, setPassword] = useState("Password123!");
   const [displayName, setDisplayName] = useState("");
   const [phone, setPhone] = useState("");
   const [verifyCode, setVerifyCode] = useState("888666");
   const [resetCode, setResetCode] = useState("888666");
-  const [newPassword, setNewPassword] = useState("Demo1234!");
+  const [newPassword, setNewPassword] = useState("Password123!");
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -46,13 +43,12 @@ function LoginContent() {
     if (emailParam) setEmail(emailParam);
   }, [searchParams]);
 
-  const notifyAuthChangedAndRedirect = (targetOverride?: string) => {
+  const notifyAndRedirect = (dest?: string) => {
     window.dispatchEvent(new Event("ev-cpo-auth-changed"));
-    const target = targetOverride || returnTo || "/";
     setTimeout(() => {
-      router.push(target);
+      router.push(dest || returnTo || "/");
       router.refresh();
-    }, 350);
+    }, 250);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -68,53 +64,14 @@ function LoginContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMsg(localizeApiMessage(data?.error || "Invalid credentials", lang));
+        setErrorMsg(localizeApiMessage(data?.error || "邮箱或密码错误", lang));
         setLoading(false);
         return;
       }
       setSuccessMsg(t.authSuccessRedirect);
-      const roles: string[] = data?.user?.roles || [];
-      const defaultDest =
-        returnTo ||
-        (roles.includes("ADMIN") ||
-        roles.includes("CUSTOMER_SERVICE") ||
-        roles.includes("SITE_STAFF")
-          ? "/admin"
-          : "/");
-      notifyAuthChangedAndRedirect(defaultDest);
+      notifyAndRedirect(returnTo);
     } catch (err: any) {
-      setErrorMsg(localizeApiMessage(err?.message || "Network error", lang));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickSwitch = async (demoEmail: string, isAdminTarget: boolean) => {
-    setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    setEmail(demoEmail);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: demoEmail,
-          password: "Password123!",
-          quickSwitch: true,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(localizeApiMessage(data?.error || "Quick sign-in failed", lang));
-        setLoading(false);
-        return;
-      }
-      setSuccessMsg(`${t.authSuccessRedirect} (${demoEmail})`);
-      const dest = returnTo || (isAdminTarget ? "/admin" : "/c/K9mP2xQ8vL4n");
-      notifyAuthChangedAndRedirect(dest);
-    } catch (err: any) {
-      setErrorMsg(localizeApiMessage(err?.message || "Network error", lang));
+      setErrorMsg(localizeApiMessage(err?.message || "网络错误", lang));
     } finally {
       setLoading(false);
     }
@@ -134,25 +91,22 @@ function LoginContent() {
           password,
           displayName: displayName.trim() || undefined,
           phone: phone.trim() || undefined,
-          locale: lang,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMsg(localizeApiMessage(data?.error || "Registration failed", lang));
+        setErrorMsg(localizeApiMessage(data?.error || "注册失败", lang));
         setLoading(false);
         return;
       }
-      if (data?.verificationCode) {
-        setVerifyCode(String(data.verificationCode));
-      } else {
-        setVerifyCode("888666");
+      if (data?.demoVerificationCode) {
+        setVerifyCode(String(data.demoVerificationCode));
       }
+      setSuccessMsg("注册成功，请输入验证码 888666 完成激活");
       window.dispatchEvent(new Event("ev-cpo-auth-changed"));
       setActiveTab("verify");
-      setSuccessMsg(t.verificationCodeHint);
     } catch (err: any) {
-      setErrorMsg(localizeApiMessage(err?.message || "Network error", lang));
+      setErrorMsg(localizeApiMessage(err?.message || "网络错误", lang));
     } finally {
       setLoading(false);
     }
@@ -167,57 +121,24 @@ function LoginContent() {
       const res = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          code: verifyCode.trim(),
-        }),
+        body: JSON.stringify({ email: email.trim(), code: verifyCode.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMsg(localizeApiMessage(data?.error || "Invalid verification code", lang));
+        setErrorMsg(localizeApiMessage(data?.error || "验证码错误", lang));
         setLoading(false);
         return;
       }
-      setSuccessMsg(t.verifySuccessMsg);
-      notifyAuthChangedAndRedirect(returnTo || "/c/K9mP2xQ8vL4n");
+      setSuccessMsg("邮箱验证成功，正在进入选枪页面...");
+      notifyAndRedirect(returnTo);
     } catch (err: any) {
-      setErrorMsg(localizeApiMessage(err?.message || "Network error", lang));
+      setErrorMsg(localizeApiMessage(err?.message || "网络错误", lang));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRequestReset = async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "request",
-          email: email.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(localizeApiMessage(data?.error || "Reset request failed", lang));
-        setLoading(false);
-        return;
-      }
-      if (data?.resetToken) {
-        setResetCode(String(data.resetToken));
-      }
-      setSuccessMsg(t.resetCodeSentMsg);
-    } catch (err: any) {
-      setErrorMsg(localizeApiMessage(err?.message || "Network error", lang));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfirmReset = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
@@ -227,456 +148,241 @@ function LoginContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "confirm",
           email: email.trim(),
-          token: resetCode.trim(),
           code: resetCode.trim(),
           newPassword,
         }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        setErrorMsg(localizeApiMessage(data?.error || "Password reset failed", lang));
+        setErrorMsg("重置失败");
         setLoading(false);
         return;
       }
-      setSuccessMsg(t.resetSuccessMsg);
-      notifyAuthChangedAndRedirect(returnTo || "/");
-    } catch (err: any) {
-      setErrorMsg(localizeApiMessage(err?.message || "Network error", lang));
+      setPassword(newPassword);
+      setSuccessMsg("密码已重置，请登录");
+      setActiveTab("login");
     } finally {
       setLoading(false);
     }
   };
 
-  const demoAccounts = [
-    {
-      email: "driver@evcpo.my",
-      roleBadge: "DRIVER (ACTIVE)",
-      badgeClass: "badge-emerald",
-      label: t.accDriverLabel,
-      desc: t.accDriverDesc,
-      isAdminTarget: false,
-    },
-    {
-      email: "unverified@evcpo.my",
-      roleBadge: "DRIVER (UNVERIFIED)",
-      badgeClass: "badge-amber",
-      label: t.accUnverifiedLabel,
-      desc: t.accUnverifiedDesc,
-      isAdminTarget: false,
-    },
-    {
-      email: "admin@evcpo.my",
-      roleBadge: "ADMIN",
-      badgeClass: "badge-purple",
-      label: t.accAdminLabel,
-      desc: t.accAdminDesc,
-      isAdminTarget: true,
-    },
-    {
-      email: "cs@evcpo.my",
-      roleBadge: "CUSTOMER_SERVICE",
-      badgeClass: "badge-blue",
-      label: t.accCsLabel,
-      desc: t.accCsDesc,
-      isAdminTarget: true,
-    },
-    {
-      email: "staff-kl@evcpo.my",
-      roleBadge: "SITE_STAFF (MY-KL-001)",
-      badgeClass: "badge-cyan",
-      label: t.accStaffLabel,
-      desc: t.accStaffDesc,
-      isAdminTarget: true,
-    },
-  ];
-
   return (
-    <div className="container-pwa">
-      <div style={{ marginBottom: "1.25rem" }}>
-        <h1 style={{ fontSize: "1.55rem", fontWeight: 800, marginBottom: "0.3rem" }}>
-          {t.authPageTitle}
-        </h1>
-        <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)" }}>
-          {t.authPageSubtitle}
-        </p>
-      </div>
-
-      {returnTo && (
+    <div className="container-narrow" style={{ maxWidth: "440px", paddingTop: "1.5rem" }}>
+      <div className="card-elevated" style={{ padding: "1.75rem 1.5rem" }}>
+        {/* Clean Tabs: Login / Register / Verify / Reset */}
         <div
-          className="card-emerald"
           style={{
-            marginBottom: "1.2rem",
-            padding: "0.85rem 1.1rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "0.75rem",
-            flexWrap: "wrap",
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "0.35rem",
+            marginBottom: "1.35rem",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <QrCode size={18} style={{ color: "var(--emerald-400)" }} />
-            <span style={{ fontSize: "0.86rem", fontWeight: 600 }}>{t.returnToNotice}</span>
+          <button
+            type="button"
+            onClick={() => setActiveTab("login")}
+            className={`tab-btn ${activeTab === "login" ? "active" : ""}`}
+            style={{ justifyContent: "center", padding: "0.5rem" }}
+          >
+            <LogIn size={14} />
+            <span>{t.authTabLogin}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("register")}
+            className={`tab-btn ${activeTab === "register" ? "active" : ""}`}
+            style={{ justifyContent: "center", padding: "0.5rem" }}
+          >
+            <UserPlus size={14} />
+            <span>{t.authTabRegister}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("verify")}
+            className={`tab-btn ${activeTab === "verify" ? "active" : ""}`}
+            style={{ justifyContent: "center", padding: "0.5rem" }}
+          >
+            <MailCheck size={14} />
+            <span>{t.authTabVerify}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("reset")}
+            className={`tab-btn ${activeTab === "reset" ? "active" : ""}`}
+            style={{ justifyContent: "center", padding: "0.5rem" }}
+          >
+            <KeyRound size={14} />
+            <span>{t.authTabReset}</span>
+          </button>
+        </div>
+
+        {errorMsg && (
+          <div
+            className="card"
+            style={{
+              borderColor: "rgba(239, 68, 68, 0.55)",
+              background: "rgba(127, 29, 29, 0.25)",
+              marginBottom: "1rem",
+              padding: "0.75rem 0.9rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              color: "#fecaca",
+              fontSize: "0.84rem",
+            }}
+          >
+            <AlertTriangle size={16} />
+            <span>{errorMsg}</span>
           </div>
-          <span className="badge badge-emerald mono">{returnTo}</span>
-        </div>
-      )}
+        )}
 
-      {errorMsg && (
-        <div
-          className="card-red"
-          style={{
-            marginBottom: "1.1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.6rem",
-            fontSize: "0.88rem",
-            fontWeight: 600,
-          }}
-        >
-          <AlertTriangle size={18} style={{ color: "var(--red-400)", flexShrink: 0 }} />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {successMsg && (
-        <div
-          className="card-emerald"
-          style={{
-            marginBottom: "1.1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.6rem",
-            fontSize: "0.88rem",
-            fontWeight: 600,
-          }}
-        >
-          <CheckCircle2 size={18} style={{ color: "var(--emerald-400)", flexShrink: 0 }} />
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      <div className="grid-2" style={{ alignItems: "start" }}>
-        {/* Left Card: 4-Tab Auth Forms */}
-        <div className="card-elevated">
-          <div className="tabs-bar">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("login");
-                setErrorMsg(null);
-              }}
-              className={`tab-btn ${activeTab === "login" ? "active" : ""}`}
-            >
-              <LogIn size={15} />
-              <span>{t.tabLogin}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("register");
-                setErrorMsg(null);
-              }}
-              className={`tab-btn ${activeTab === "register" ? "active" : ""}`}
-            >
-              <UserPlus size={15} />
-              <span>{t.tabRegister}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("verify");
-                setErrorMsg(null);
-              }}
-              className={`tab-btn ${activeTab === "verify" ? "active" : ""}`}
-            >
-              <MailCheck size={15} />
-              <span>{t.tabVerifyEmail}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("reset");
-                setErrorMsg(null);
-              }}
-              className={`tab-btn ${activeTab === "reset" ? "active" : ""}`}
-            >
-              <KeyRound size={15} />
-              <span>{t.tabResetPassword}</span>
-            </button>
+        {successMsg && (
+          <div
+            className="card"
+            style={{
+              borderColor: "rgba(16, 185, 129, 0.55)",
+              background: "rgba(6, 78, 59, 0.28)",
+              marginBottom: "1rem",
+              padding: "0.75rem 0.9rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              color: "#a7f3d0",
+              fontSize: "0.84rem",
+            }}
+          >
+            <CheckCircle2 size={16} />
+            <span>{successMsg}</span>
           </div>
+        )}
 
-          {activeTab === "login" && (
-            <form onSubmit={handleLogin}>
-              <div className="form-group">
-                <label className="form-label">{t.emailLabel}</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="form-input"
-                  placeholder="driver@evcpo.my"
-                />
-              </div>
+        {activeTab === "login" && (
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="field-group">
+              <label className="field-label">{t.emailLabel}</label>
+              <input
+                type="email"
+                required
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
 
-              <div className="form-group">
-                <label className="form-label">{t.passwordLabel}</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="form-input"
-                  placeholder="••••••••"
-                />
-              </div>
+            <div className="field-group">
+              <label className="field-label">{t.passwordLabel}</label>
+              <input
+                type="password"
+                required
+                className="input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary btn-full"
-                style={{ marginTop: "0.4rem" }}
-              >
-                <LogIn size={16} />
-                <span>{t.loginSubmitBtn}</span>
-              </button>
-            </form>
-          )}
+            <button type="submit" disabled={loading} className="btn btn-primary btn-lg btn-full">
+              <Zap size={16} />
+              <span>{loading ? "..." : t.loginSubmitBtn}</span>
+            </button>
+          </form>
+        )}
 
-          {activeTab === "register" && (
-            <form onSubmit={handleRegister}>
-              <div className="form-group">
-                <label className="form-label">{t.emailLabel}</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="form-input"
-                  placeholder="newdriver@evcpo.my"
-                />
-              </div>
+        {activeTab === "register" && (
+          <form onSubmit={handleRegister} style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+            <div className="field-group">
+              <label className="field-label">{t.emailLabel}</label>
+              <input
+                type="email"
+                required
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="field-group">
+              <label className="field-label">{t.passwordLabel}</label>
+              <input
+                type="password"
+                required
+                className="input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="field-group">
+              <label className="field-label">{t.displayNameLabel}</label>
+              <input
+                type="text"
+                className="input"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </div>
+            <button type="submit" disabled={loading} className="btn btn-primary btn-lg btn-full">
+              <UserPlus size={16} />
+              <span>{loading ? "..." : t.registerSubmitBtn}</span>
+            </button>
+          </form>
+        )}
 
-              <div className="form-group">
-                <label className="form-label">{t.displayNameLabel}</label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="form-input"
-                  placeholder="Ahmad / Tan Wei Ming"
-                />
-              </div>
+        {activeTab === "verify" && (
+          <form onSubmit={handleVerifyEmail} style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+            <div className="field-group">
+              <label className="field-label">{t.emailLabel}</label>
+              <input
+                type="email"
+                required
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="field-group">
+              <label className="field-label">{t.verifyCodeLabel} (888666)</label>
+              <input
+                type="text"
+                required
+                maxLength={6}
+                className="input mono"
+                value={verifyCode}
+                onChange={(e) => setVerifyCode(e.target.value)}
+              />
+            </div>
+            <button type="submit" disabled={loading} className="btn btn-primary btn-lg btn-full">
+              <MailCheck size={16} />
+              <span>{loading ? "..." : t.verifySubmitBtn}</span>
+            </button>
+          </form>
+        )}
 
-              <div className="form-group">
-                <label className="form-label">{t.phoneOptionalLabel}</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="form-input"
-                  placeholder="+60 12-345 6789"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">{t.passwordLabel}</label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary btn-full"
-                style={{ marginTop: "0.4rem" }}
-              >
-                <UserPlus size={16} />
-                <span>{t.registerSubmitBtn}</span>
-              </button>
-            </form>
-          )}
-
-          {activeTab === "verify" && (
-            <form onSubmit={handleVerifyEmail}>
-              <div className="form-group">
-                <label className="form-label">{t.emailLabel}</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">{t.verificationCodeLabel}</label>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={verifyCode}
-                  onChange={(e) => setVerifyCode(e.target.value)}
-                  className="form-input mono"
-                  style={{ fontSize: "1.2rem", letterSpacing: "0.2em", fontWeight: 800 }}
-                  placeholder="888666"
-                />
-                <span style={{ fontSize: "0.75rem", color: "var(--emerald-400)" }}>
-                  {t.verificationCodeHint}
-                </span>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary btn-full"
-                style={{ marginTop: "0.4rem" }}
-              >
-                <MailCheck size={16} />
-                <span>{t.verifySubmitBtn}</span>
-              </button>
-            </form>
-          )}
-
-          {activeTab === "reset" && (
-            <form onSubmit={handleConfirmReset}>
-              <div className="form-group">
-                <label className="form-label">{t.emailLabel}</label>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="form-input"
-                  />
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleRequestReset}
-                    className="btn btn-secondary btn-sm"
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    {t.requestResetBtn}
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">{t.resetTokenLabel}</label>
-                <input
-                  type="text"
-                  required
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
-                  className="form-input mono"
-                  placeholder="888666"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">{t.newPasswordLabel}</label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary btn-full"
-                style={{ marginTop: "0.4rem" }}
-              >
-                <KeyRound size={16} />
-                <span>{t.confirmResetBtn}</span>
-              </button>
-            </form>
-          )}
-        </div>
-
-        {/* Right Card: Demo Quick Account Switcher Panel */}
-        <div className="card-elevated">
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
-            <Shield size={18} style={{ color: "var(--emerald-400)" }} />
-            <h2 style={{ fontSize: "1.08rem", fontWeight: 800 }}>
-              {t.quickAccountSwitcherTitle}
-            </h2>
-          </div>
-          <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
-            {t.quickAccountSwitcherDesc}
-          </p>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.7rem" }}>
-            {demoAccounts.map((acc) => (
-              <div
-                key={acc.email}
-                style={{
-                  background: "#080f1a",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "0.85rem 0.95rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "0.75rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ flex: 1, minWidth: "200px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.45rem",
-                      marginBottom: "0.25rem",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span style={{ fontWeight: 800, fontSize: "0.88rem" }}>{acc.label}</span>
-                    <span className={`badge ${acc.badgeClass}`}>{acc.roleBadge}</span>
-                  </div>
-                  <div
-                    className="mono"
-                    style={{
-                      fontSize: "0.76rem",
-                      color: "var(--emerald-400)",
-                      marginBottom: "0.2rem",
-                    }}
-                  >
-                    {acc.email}
-                  </div>
-                  <div style={{ fontSize: "0.76rem", color: "var(--text-muted)" }}>{acc.desc}</div>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleQuickSwitch(acc.email, acc.isAdminTarget)}
-                  className="btn btn-outline btn-sm"
-                >
-                  <UserCheck size={14} />
-                  <span>{t.quickSwitchBtn}</span>
-                  <ArrowRight size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        {activeTab === "reset" && (
+          <form onSubmit={handleResetPassword} style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+            <div className="field-group">
+              <label className="field-label">{t.emailLabel}</label>
+              <input
+                type="email"
+                required
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="field-group">
+              <label className="field-label">{t.newPasswordLabel}</label>
+              <input
+                type="password"
+                required
+                className="input"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <button type="submit" disabled={loading} className="btn btn-primary btn-lg btn-full">
+              <KeyRound size={16} />
+              <span>{loading ? "..." : t.resetSubmitBtn}</span>
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -684,7 +390,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="container-pwa">Loading...</div>}>
+    <Suspense fallback={<div className="container-narrow">Loading...</div>}>
       <LoginContent />
     </Suspense>
   );

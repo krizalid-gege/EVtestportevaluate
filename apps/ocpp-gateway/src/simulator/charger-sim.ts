@@ -388,10 +388,9 @@ export class ChargerSimulator {
 
     this.tickCount += 1;
     this.currentMeterWh += 2500; // +2.5 kWh per tick for responsive demo progression
-    const socProgression = [45, 52, 60, 68, 75, 82, 88, 94];
+    const socProgression = [48, 56, 65, 74, 83, 91, 96, 100];
     this.currentSoc =
-      socProgression[Math.min(this.tickCount - 1, socProgression.length - 1)] ??
-      Math.min(99, this.currentSoc + 6);
+      socProgression[Math.min(this.tickCount - 1, socProgression.length - 1)] ?? 100;
 
     const voltage = this.isGbtRealProfile ? "418.6" : "415.2";
     const current = this.isGbtRealProfile ? "46.4" : "46.8";
@@ -446,6 +445,9 @@ export class ChargerSimulator {
       this.autoStopAfterTicks = null;
       this.duplicateNextStop = false;
       await this.executeStopTransaction("Local", shouldDup);
+    } else if (this.currentSoc >= 100) {
+      // Automatically stop and settle when battery reaches 100% full charge
+      await this.executeStopTransaction("Local", false);
     }
   }
 
