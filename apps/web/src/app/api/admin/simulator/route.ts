@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@ev-cpo/db";
-import { getCurrentUser, handleApiError } from "@/lib/auth";
+import { prisma, RoleCode } from "@ev-cpo/db";
+import { requireAuth, requireRole, handleApiError } from "@/lib/auth";
 import { triggerOcppSimulatorScenario } from "@/lib/ocpp-client";
 
 function normalizeScenarioName(rawScenario: string): string {
@@ -27,12 +27,21 @@ function normalizeScenarioName(rawScenario: string): string {
  */
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser(req);
+    const user = await requireAuth(req);
     const body = await req.json().catch(() => ({}));
 
     const rawScenario = String(body.scenario || "normal").trim();
     const scenario = normalizeScenarioName(rawScenario);
     const ocppId = String(body.ocppId || "MY-KL-DC-001").trim();
+
+    await requireRole(
+      user,
+      [RoleCode.ADMIN],
+      "SIMULATOR_TRIGGER",
+      "CHARGER",
+      ocppId,
+      req
+    );
 
     // Wait for completion by default unless explicitly set to false
     const shouldWait =

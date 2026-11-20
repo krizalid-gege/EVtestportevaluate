@@ -37,9 +37,10 @@ export async function GET(req: Request) {
     );
 
     const siteFilter = getSiteFilter(user);
+    const isAdmin = user.roleCodes.includes(RoleCode.ADMIN);
     const isSiteStaff =
       user.roleCodes.includes(RoleCode.SITE_STAFF) &&
-      !user.roleCodes.includes(RoleCode.ADMIN) &&
+      !isAdmin &&
       !user.roleCodes.includes(RoleCode.CUSTOMER_SERVICE);
 
     const siteWhere = isSiteStaff
@@ -127,21 +128,20 @@ export async function GET(req: Request) {
             },
           },
         }),
-        prisma.auditLog.findMany({
-          orderBy: { createdAt: "desc" },
-          take: 60,
-        }),
-        prisma.emailDelivery.findMany({
-          orderBy: { createdAt: "desc" },
-          take: 30,
-        }),
+        isAdmin
+          ? prisma.auditLog.findMany({
+              orderBy: { createdAt: "desc" },
+              take: 60,
+            })
+          : Promise.resolve([]),
+        Promise.resolve([] as Array<{ id: string; toEmail: string; [key: string]: any }>),
         getOcppGatewayStatus(),
       ]);
 
     const visibleChargerIds = chargers.map((c) => c.id);
     const visibleOrderIds = orders.map((o) => o.id);
 
-    const [ocppMessages, payments, alerts] = await Promise.all([
+    const [ocppMessages, payments, alerts, scopedEmailDeliveries] = await Promise.all([
       prisma.ocppMessage.findMany({
         where: isSiteStaff ? { chargerId: { in: visibleChargerIds } } : {},
         orderBy: { createdAt: "desc" },
@@ -183,7 +183,14 @@ export async function GET(req: Request) {
           },
         },
       }),
+      prisma.emailDelivery.findMany({
+        where: isSiteStaff ? { orderId: { in: visibleOrderIds } } : {},
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
     ]);
+
+    void emailDeliveries;
 
     // Sanitize chargers (never return authTokenHash)
     const sanitizedChargers = chargers.map(({ authTokenHash, ...rest }) => rest);
@@ -200,7 +207,7 @@ export async function GET(req: Request) {
         : null,
     }));
 
-    const sanitizedEmails = emailDeliveries.map((mail) => ({
+    const sanitizedEmails = scopedEmailDeliveries.map((mail) => ({
       ...mail,
       toEmail: maskEmailForCs(mail.toEmail, user.roleCodes),
     }));

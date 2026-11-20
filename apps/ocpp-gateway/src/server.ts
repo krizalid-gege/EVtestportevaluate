@@ -638,6 +638,24 @@ async function handleInboundChargerCall(
         return;
       }
 
+      // Security invariant (Codex P0 fix): Verify the transaction belongs to the connected charger
+      if (ocppTx.chargerId !== charger.id) {
+        await prisma.alert.create({
+          data: {
+            chargerId: charger.id,
+            orderId: ocppTx.orderId,
+            alertType: "ORDER_ANOMALY",
+            severity: "CRITICAL",
+            title: `Cross-charger StopTransaction rejected on ${ocppId}`,
+            description: `Charger ${ocppId} (${charger.id}) attempted to stop transactionId=${txId} owned by chargerId=${ocppTx.chargerId}.`,
+          },
+        });
+        await sendCallResultToCharger(ws, ocppId, charger.id, uniqueId, action, {
+          idTagInfo: { status: "Invalid" },
+        });
+        return;
+      }
+
       const order = ocppTx.order;
 
       // REQ-CHG-005 / Acceptance Criterion 4: Duplicate StopTransaction Idempotency
