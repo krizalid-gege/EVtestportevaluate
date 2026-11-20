@@ -220,7 +220,7 @@ export default function OrderReceiptDetailPage({
         {/* Itemized Integer MYR Sen Settlement Box */}
         <div
           style={{
-            background: "#060c15",
+            background: "var(--bg-surface-subtle)",
             border: "1px solid var(--border-subtle)",
             borderRadius: "var(--radius-md)",
             padding: "1rem 1.15rem",

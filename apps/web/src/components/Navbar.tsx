@@ -135,7 +135,7 @@ export function Navbar() {
         </div>
       )}
 
-      <div className="navbar-inner" style={{ maxWidth: "560px" }}>
+      <div className="navbar-inner" style={{ maxWidth: "860px" }}>
         <Link href="/" className="brand-link">
           <span className="brand-icon">
             <Zap size={18} />

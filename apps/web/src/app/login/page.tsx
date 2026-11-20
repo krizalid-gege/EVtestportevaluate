@@ -220,15 +220,16 @@ function LoginContent() {
           <div
             className="card"
             style={{
-              borderColor: "rgba(239, 68, 68, 0.55)",
-              background: "rgba(127, 29, 29, 0.25)",
+              borderColor: "rgba(220, 38, 38, 0.35)",
+              background: "var(--red-50)",
               marginBottom: "1rem",
               padding: "0.75rem 0.9rem",
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              color: "#fecaca",
+              color: "var(--red-700)",
               fontSize: "0.84rem",
+              fontWeight: 600,
             }}
           >
             <AlertTriangle size={16} />
@@ -240,15 +241,16 @@ function LoginContent() {
           <div
             className="card"
             style={{
-              borderColor: "rgba(16, 185, 129, 0.55)",
-              background: "rgba(6, 78, 59, 0.28)",
+              borderColor: "rgba(5, 150, 105, 0.35)",
+              background: "var(--emerald-50)",
               marginBottom: "1rem",
               padding: "0.75rem 0.9rem",
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              color: "#a7f3d0",
+              color: "var(--emerald-600)",
               fontSize: "0.84rem",
+              fontWeight: 600,
             }}
           >
             <CheckCircle2 size={16} />

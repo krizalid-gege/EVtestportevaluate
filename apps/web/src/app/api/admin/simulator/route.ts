@@ -39,8 +39,7 @@ export async function POST(req: Request) {
       [RoleCode.ADMIN],
       "SIMULATOR_TRIGGER",
       "CHARGER",
-      ocppId,
-      req
+      ocppId
     );
 
     // Wait for completion by default unless explicitly set to false

@@ -272,8 +272,8 @@ export default function CleanChargingPage({
         <div
           className="card"
           style={{
-            borderColor: "rgba(239, 68, 68, 0.55)",
-            background: "rgba(127, 29, 29, 0.25)",
+            borderColor: "rgba(220, 38, 38, 0.35)",
+            background: "var(--red-50)",
             marginBottom: "1rem",
             padding: "0.85rem 1rem",
             display: "flex",
@@ -281,8 +281,8 @@ export default function CleanChargingPage({
             gap: "0.6rem",
           }}
         >
-          <AlertCircle size={18} style={{ color: "#f87171", flexShrink: 0 }} />
-          <div style={{ fontSize: "0.86rem", color: "#fecaca" }}>{errorBanner}</div>
+          <AlertCircle size={18} style={{ color: "var(--red-500)", flexShrink: 0 }} />
+          <div style={{ fontSize: "0.86rem", color: "var(--red-700)", fontWeight: 600 }}>{errorBanner}</div>
         </div>
       )}
 
@@ -320,8 +320,9 @@ export default function CleanChargingPage({
 
           <div
             style={{
-              background: "rgba(7, 13, 23, 0.75)",
-              borderRadius: "12px",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "14px",
               padding: "1.25rem",
               marginBottom: "1.25rem",
             }}
@@ -433,17 +434,17 @@ export default function CleanChargingPage({
               style={{
                 width: "100%",
                 height: "14px",
-                background: "#0b1526",
+                background: "var(--emerald-50)",
                 borderRadius: "999px",
                 overflow: "hidden",
-                border: "1px solid rgba(16, 185, 129, 0.3)",
+                border: "1px solid rgba(5, 150, 105, 0.25)",
               }}
             >
               <div
                 style={{
                   width: `${Math.min(100, Math.max(10, currentSoc))}%`,
                   height: "100%",
-                  background: "linear-gradient(90deg, #059669, #34d399)",
+                  background: "linear-gradient(90deg, #10b981, #059669)",
                   transition: "width 0.6s ease",
                 }}
               />
@@ -460,46 +461,46 @@ export default function CleanChargingPage({
           >
             <div
               style={{
-                background: "#070d17",
+                background: "var(--bg-surface-subtle)",
                 border: "1px solid var(--border-subtle)",
-                borderRadius: "10px",
+                borderRadius: "12px",
                 padding: "0.85rem 0.5rem",
               }}
             >
               <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
                 {copy.energyLabel}
               </div>
-              <div style={{ fontSize: "1.05rem", fontWeight: 800 }}>{currentKwh}</div>
+              <div style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text-primary)" }}>{currentKwh}</div>
             </div>
 
             <div
               style={{
-                background: "#070d17",
+                background: "var(--bg-surface-subtle)",
                 border: "1px solid var(--border-subtle)",
-                borderRadius: "10px",
+                borderRadius: "12px",
                 padding: "0.85rem 0.5rem",
               }}
             >
               <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
                 {copy.amountLabel}
               </div>
-              <div style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--emerald-400)" }}>
+              <div style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--emerald-600)" }}>
                 {currentRm}
               </div>
             </div>
 
             <div
               style={{
-                background: "#070d17",
+                background: "var(--bg-surface-subtle)",
                 border: "1px solid var(--border-subtle)",
-                borderRadius: "10px",
+                borderRadius: "12px",
                 padding: "0.85rem 0.5rem",
               }}
             >
               <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
                 {copy.powerLabel}
               </div>
-              <div style={{ fontSize: "1.05rem", fontWeight: 800 }}>{currentKw}</div>
+              <div style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text-primary)" }}>{currentKw}</div>
             </div>
           </div>
 
@@ -564,10 +565,10 @@ export default function CleanChargingPage({
           {/* Simple Price Box */}
           <div
             style={{
-              background: "#070d17",
+              background: "var(--bg-surface-subtle)",
               border: "1px solid var(--border-subtle)",
-              borderRadius: "12px",
-              padding: "1rem 1.15rem",
+              borderRadius: "14px",
+              padding: "1.05rem 1.2rem",
               marginBottom: "1.35rem",
               display: "flex",
               alignItems: "center",
@@ -575,12 +576,12 @@ export default function CleanChargingPage({
             }}
           >
             <div>
-              <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>{copy.priceTitle}</div>
-              <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+              <div style={{ fontSize: "0.84rem", fontWeight: 700, color: "var(--text-primary)" }}>{copy.priceTitle}</div>
+              <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "0.18rem" }}>
                 {copy.priceDetail}
               </div>
             </div>
-            <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "var(--emerald-400)" }}>
+            <div style={{ fontSize: "1.32rem", fontWeight: 900, color: "var(--emerald-600)", whiteSpace: "nowrap", flexShrink: 0 }}>
               RM 1.50 <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>/ kWh</span>
             </div>
           </div>
@@ -590,14 +591,14 @@ export default function CleanChargingPage({
             <form
               onSubmit={handleInlineVerify}
               style={{
-                background: "rgba(245, 158, 11, 0.12)",
-                border: "1px solid rgba(245, 158, 11, 0.4)",
-                borderRadius: "10px",
-                padding: "0.9rem",
+                background: "var(--amber-50)",
+                border: "1px solid rgba(217, 119, 6, 0.35)",
+                borderRadius: "12px",
+                padding: "0.95rem",
                 marginBottom: "1rem",
               }}
             >
-              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#fcd34d", marginBottom: "0.5rem" }}>
+              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--amber-500)", marginBottom: "0.5rem" }}>
                 首次充电请验证邮箱（演示验证码：888666）
               </div>
               <div style={{ display: "flex", gap: "0.5rem" }}>

@@ -444,7 +444,7 @@ export default function ChineseAdminConsolePage() {
             display: "flex",
             flexDirection: "column",
             gap: "0.4rem",
-            background: "#070d17",
+            background: "var(--bg-surface-subtle)",
             padding: "0.7rem 0.9rem",
             borderRadius: "var(--radius-md)",
             border: "1px solid var(--border-subtle)",
@@ -1071,7 +1071,7 @@ export default function ChineseAdminConsolePage() {
                 <div
                   key={o.id}
                   style={{
-                    background: "#070c14",
+                    background: "var(--bg-surface-subtle)",
                     border: "1px solid var(--border-subtle)",
                     borderRadius: "var(--radius-sm)",
                     padding: "0.65rem 0.85rem",
@@ -1480,7 +1480,7 @@ export default function ChineseAdminConsolePage() {
                   <div
                     key={al.id}
                     style={{
-                      background: "#070c14",
+                      background: "var(--bg-surface-subtle)",
                       border: "1px solid var(--border-subtle)",
                       borderRadius: "var(--radius-sm)",
                       padding: "0.7rem 0.85rem",
@@ -1532,7 +1532,7 @@ export default function ChineseAdminConsolePage() {
                   <div
                     key={em.id}
                     style={{
-                      background: "#070c14",
+                      background: "var(--bg-surface-subtle)",
                       border: "1px solid var(--border-subtle)",
                       borderRadius: "var(--radius-sm)",
                       padding: "0.7rem 0.85rem",
