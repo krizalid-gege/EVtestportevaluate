@@ -1,0 +1,23 @@
+{
+  "name": "@ev-cpo/ocpp-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts",
+    "sim:normal": "tsx src/simulator/cli.ts --scenario=normal",
+    "sim:reject": "tsx src/simulator/cli.ts --scenario=reject",
+    "sim:dup-stop": "tsx src/simulator/cli.ts --scenario=dup-stop",
+    "sim:gbt-real": "tsx src/simulator/cli.ts --scenario=gbt-real"
+  },
+  "dependencies": {
+    "@ev-cpo/db": "workspace:*",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

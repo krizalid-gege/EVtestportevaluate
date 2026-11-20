@@ -1,0 +1,21 @@
+{
+  "name": "malaysia-ev-cpo-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Malaysia Self-Operated EV CPO Platform - Phase 1A (OCPP 1.6J Closed Loop & Simulated Settlement)",
+  "scripts": {
+    "db:generate": "pnpm --filter @ev-cpo/db db:generate",
+    "db:push": "pnpm --filter @ev-cpo/db db:push",
+    "db:seed": "pnpm --filter @ev-cpo/db db:seed",
+    "test:db": "pnpm --filter @ev-cpo/db test",
+    "dev:ocpp": "pnpm --filter @ev-cpo/ocpp-gateway dev",
+    "dev:web": "pnpm --filter @ev-cpo/web dev",
+    "sim:normal": "pnpm --filter @ev-cpo/ocpp-gateway sim:normal",
+    "sim:reject": "pnpm --filter @ev-cpo/ocpp-gateway sim:reject",
+    "sim:dup-stop": "pnpm --filter @ev-cpo/ocpp-gateway sim:dup-stop",
+    "build": "pnpm -r build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

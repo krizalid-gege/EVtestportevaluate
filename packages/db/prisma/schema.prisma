@@ -1,0 +1,569 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS (All non-Chinese database enums per REQ-ADM-006 & Section 11/13.4)
+// ============================================================================
+
+enum RoleCode {
+  ADMIN
+  CUSTOMER_SERVICE
+  SITE_STAFF
+  DRIVER
+}
+
+enum UserStatus {
+  UNVERIFIED
+  ACTIVE
+  DISABLED
+}
+
+enum ConnectorStandard {
+  GBT_DC
+  CCS2
+  TYPE2_AC
+}
+
+enum ChargerConnectionStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum ConnectorOcppStatus {
+  Available
+  Preparing
+  Charging
+  SuspendedEVSE
+  SuspendedEV
+  Finishing
+  Reserved
+  Unavailable
+  Faulted
+}
+
+enum OrderStatus {
+  DRAFT
+  AUTHORIZING
+  READY_TO_START
+  STARTING
+  CHARGING
+  STOPPING
+  SETTLING
+  COMPLETED
+  AUTHORIZATION_FAILED
+  START_FAILED
+  INTERRUPTED
+  MANUAL_REVIEW
+  CANCELLED
+}
+
+enum PaymentMode {
+  SIMULATED
+  STRIPE_TEST
+}
+
+enum PaymentStatus {
+  SIMULATED_PENDING
+  SIMULATED_SUCCEEDED
+  SIMULATED_CANCELLED
+  REQUIRES_ACTION
+  AUTHORIZED
+  CAPTURE_PENDING
+  CAPTURED
+  CANCELLED
+  FAILED
+  REFUND_PENDING
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+// ============================================================================
+// 1. ACCOUNT & ACCESS CONTROL (REQ-ACC-001 ~ 005, REQ-ADM-001 ~ 003)
+// ============================================================================
+
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  phone               String?              // REQ-ACC-004: Nullable reserved phone field
+  displayName         String?
+  locale              String               @default("en") // "en" | "ms" | "zh"
+  status              UserStatus           @default(UNVERIFIED)
+  emailVerifiedAt     DateTime?
+  paymentRestricted   Boolean              @default(false) // Phase 1B restriction flag
+  paymentRestrictNote String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  credential          UserCredential?
+  roles               Role[]
+  siteAssignments     UserSiteAssignment[]
+  orders              ChargingOrder[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]           @relation("ActorAuditLogs")
+}
+
+model UserCredential {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordHash           String
+  emailVerificationCode  String?
+  emailVerificationExp   DateTime?
+  passwordResetToken     String?
+  passwordResetExp       DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model Role {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleCode  RoleCode
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roleCode])
+}
+
+model UserSiteAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, siteId])
+}
+
+// ============================================================================
+// 2. SITES, CHARGERS, CONNECTORS & QR CODES (REQ-DEV-001 ~ 007)
+// ============================================================================
+
+model Site {
+  id                    String               @id @default(cuid())
+  code                  String               @unique
+  name                  String
+  nameEn                String?
+  nameMs                String?
+  countryCode           String               @default("MY") // MY (Malaysia), reserved for TH / SG
+  timezone              String               @default("Asia/Kuala_Lumpur")
+  currency              String               @default("MYR")
+  address               String
+  latitude              Float?
+  longitude             Float?
+  isActive              Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  chargers              Charger[]
+  tariffs               Tariff[]
+  staffAssignments      UserSiteAssignment[]
+  orders                ChargingOrder[]
+}
+
+model Charger {
+  id                      String                  @id @default(cuid())
+  siteId                  String
+  site                    Site                    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  ocppId                  String                  @unique // REQ-DEV-002: Unique OCPP ChargePoint identity
+  name                    String
+  vendor                  String                  @default("Techone")
+  model                   String                  @default("GPEV20-BG102-S1P-EA") // REQ-DEV-003: 20kW Single-gun DC
+  serialNumber            String?
+  seccModel               String                  @default("QY-SECC-02") // QuanYao SECC module
+  firmwareVersion         String?                 // REQ-DEV-007: Record only, no OTA button
+  ratedPowerKw            Int                     @default(20) // REQ-DEV-003: Static 20kW in Phase 1A
+  staticPowerLimitKw      Int                     @default(20)
+  voltageMinV             Int                     @default(200)
+  voltageMaxV             Int                     @default(1000)
+  currentMaxA             Float                   @default(66.7)
+  requirePreparingState   Boolean                 @default(false) // Compatibility switch for GB/T & SECC plug-in state
+  authTokenHash           String?                 // Per-charger WSS basic auth secret hash
+  connectionStatus        ChargerConnectionStatus @default(OFFLINE)
+  controllerOcppStatus    ConnectorOcppStatus     @default(Available) // Tracks connectorId = 0 state
+  controllerErrorCode     String                  @default("NoError")
+  vendorErrorCode         String?
+  seccStageInfo           String?                 // Decoded QuanYao SECC stage / V2G sequence step
+  lastBootAt              DateTime?
+  lastHeartbeatAt         DateTime?
+  lastConnectedAt         DateTime?
+  lastDisconnectedAt      DateTime?
+  lastTransactionAt       DateTime?
+  isActive                Boolean                 @default(true)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  connectors              Connector[]
+  ocppConnections         OcppConnection[]
+  ocppTransactions        OcppTransaction[]
+  ocppMessages            OcppMessage[]
+  orders                  ChargingOrder[]
+  alerts                  Alert[]
+}
+
+model Connector {
+  id                  String              @id @default(cuid())
+  chargerId           String
+  charger             Charger             @relation(fields: [chargerId], references: [id], onDelete: Cascade)
+  connectorId         Int                 @default(1) // REQ-DEV-003: Single gun = 1
+  standard            ConnectorStandard   @default(GBT_DC) // GBT_DC or CCS2
+  ratedPowerKw        Int                 @default(20)
+  ocppStatus          ConnectorOcppStatus @default(Available)
+  errorCode           String              @default("NoError")
+  vendorErrorCode     String?
+  errorInfo           String?
+  isPluggedIn         Boolean             @default(false)
+  gunTemp1C           Float?              // PT100/NTC T1 sensor from GPEV20 / QY-SECC-02
+  gunTemp2C           Float?              // PT100/NTC T2 sensor
+  lastStatusAt        DateTime            @default(now())
+  isEnabled           Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  qrCodes             ConnectorQrCode[]
+  orders              ChargingOrder[]
+  ocppTransactions    OcppTransaction[]
+  meterValues         MeterValue[]
+
+  @@unique([chargerId, connectorId])
+}
+
+model ConnectorQrCode {
+  id          String    @id @default(cuid())
+  connectorId String
+  connector   Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  qrToken     String    @unique // REQ-DEV-004: Non-sequential opaque token e.g. "K9mP2xQ8vL4n"
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+}
+
+// ============================================================================
+// 3. TARIFF & IMMUTABLE TARIFF SNAPSHOT (REQ-BIL-001 ~ 005)
+// ============================================================================
+
+model Tariff {
+  id                   String           @id @default(cuid())
+  siteId               String?
+  site                 Site?            @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  name                 String
+  currency             String           @default("MYR")
+  // Stored in Sen per kWh (1 MYR = 100 Sen). E.g., RM 1.20/kWh = 120 Sen, RM 0.30/kWh = 30 Sen
+  energyPriceSenPerKwh Int              @default(120)
+  serviceFeeSenPerKwh  Int              @default(30)
+  // Tax rate in basis points (100 bps = 1.00%, e.g. 600 = 6.00% SST)
+  taxRateBps           Int              @default(600)
+  isTaxInclusive       Boolean          @default(true)
+  isDemoPrice          Boolean          @default(true)
+  isActive             Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  snapshots            TariffSnapshot[]
+}
+
+model TariffSnapshot {
+  id                   String         @id @default(cuid())
+  tariffId             String?
+  tariff               Tariff?        @relation(fields: [tariffId], references: [id], onDelete: SetNull)
+  name                 String
+  currency             String         @default("MYR")
+  energyPriceSenPerKwh Int
+  serviceFeeSenPerKwh  Int
+  taxRateBps           Int
+  isTaxInclusive       Boolean        @default(true)
+  isDemoPrice          Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+
+  order                ChargingOrder?
+}
+
+// ============================================================================
+// 4. CHARGING ORDERS & EVENTS (REQ-CHG-001 ~ 009, Section 10 & 11)
+// ============================================================================
+
+model ChargingOrder {
+  id                    String               @id @default(cuid())
+  orderNo               String               @unique // Human-readable e.g. "MY20261120-0001"
+  idempotencyKey        String               @unique // REQ-CHG-002: Prevents duplicate start requests
+  ocppIdTag             String               @unique // <=20 char token sent in RemoteStartTransaction e.g. "ord_a8f9k2m1p4x7"
+  userId                String
+  user                  User                 @relation(fields: [userId], references: [id])
+  siteId                String
+  site                  Site                 @relation(fields: [siteId], references: [id])
+  chargerId             String
+  charger               Charger              @relation(fields: [chargerId], references: [id])
+  connectorId           String
+  connector             Connector            @relation(fields: [connectorId], references: [id])
+  tariffSnapshotId      String               @unique
+  tariffSnapshot        TariffSnapshot       @relation(fields: [tariffSnapshotId], references: [id])
+
+  status                OrderStatus          @default(DRAFT)
+  paymentMode           PaymentMode          @default(SIMULATED)
+
+  // Meter & Telemetry Summary (All energy in integer Wh, all amounts in integer MYR Sen)
+  meterStartWh          Int?
+  meterCurrentWh        Int?
+  meterStopWh           Int?
+  chargedEnergyWh       Int                  @default(0) // REQ-BIL-003: Integer Wh
+  currentPowerW         Int                  @default(0)
+  currentVoltageV       Float?
+  currentAmpereA        Float?
+  lastValidSocPercent   Int?                 // Protects against QuanYao SECC trailing 0% SoC at stop
+  remainingTimeMin      Int?
+
+  // Billing Breakdown in integer MYR Sen (REQ-BIL-002 ~ 003)
+  energyAmountSen       Int                  @default(0)
+  serviceAmountSen      Int                  @default(0)
+  subtotalAmountSen     Int                  @default(0)
+  taxAmountSen          Int                  @default(0)
+  totalAmountSen        Int                  @default(0)
+  currency              String               @default("MYR")
+
+  // Lifecycle Timestamps & Diagnostics
+  authorizedAt          DateTime?
+  remoteStartSentAt     DateTime?
+  chargingStartedAt     DateTime?
+  remoteStopSentAt      DateTime?
+  chargingStoppedAt     DateTime?
+  settledAt             DateTime?
+  stopReason            String?
+  failureReason         String?
+  manualReviewReason    String?
+  seccDiagnosticCode    String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  events                ChargingOrderEvent[]
+  ocppTransaction       OcppTransaction?
+  payments              Payment[]
+  meterValues           MeterValue[]
+}
+
+model ChargingOrderEvent {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       ChargingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  eventType   String        // e.g. "ORDER_CREATED", "SIMULATED_AUTH_OK", "REMOTE_START_SENT", "OCPP_START_TX", "METER_UPDATE", "OCPP_STOP_TX", "SETTLED"
+  actor       String        // "USER", "OCPP_CHARGER", "SYSTEM", "ADMIN"
+  description String
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+}
+
+// ============================================================================
+// 5. OCPP 1.6J CONNECTIONS, TRANSACTIONS, MESSAGES & METER VALUES
+// ============================================================================
+
+model OcppConnection {
+  id             String    @id @default(cuid())
+  chargerId      String
+  charger        Charger   @relation(fields: [chargerId], references: [id], onDelete: Cascade)
+  remoteAddress  String?
+  protocol       String    @default("ocpp1.6")
+  connectedAt    DateTime  @default(now())
+  disconnectedAt DateTime?
+  disconnectNote String?
+}
+
+model OcppTransaction {
+  id                  String         @id @default(cuid())
+  transactionId       Int            @unique // OCPP 1.6J integer transactionId assigned by CSMS
+  chargerId           String
+  charger             Charger        @relation(fields: [chargerId], references: [id], onDelete: Cascade)
+  connectorId         String
+  connector           Connector      @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  orderId             String?        @unique // Invariant 2: One OCPP transactionId belongs to at most one ChargingOrder
+  order               ChargingOrder? @relation(fields: [orderId], references: [id])
+  idTag               String
+  meterStartWh        Int
+  meterStopWh         Int?
+  lastMeterWh         Int
+  lastValidSocPercent Int?
+  startedAt           DateTime
+  stoppedAt           DateTime?
+  stopReason          String?
+  isDuplicateStopSeen Boolean        @default(false)
+  rawStartPayload     Json?
+  rawStopPayload      Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  meterValues         MeterValue[]
+}
+
+model OcppMessage {
+  id            String   @id @default(cuid())
+  chargerId     String
+  charger       Charger  @relation(fields: [chargerId], references: [id], onDelete: Cascade)
+  ocppId        String
+  direction     String   // "INBOUND" (Charger -> CSMS) | "OUTBOUND" (CSMS -> Charger)
+  messageTypeId Int      // 2 = CALL, 3 = CALLRESULT, 4 = CALLERROR
+  uniqueId      String   // OCPP message correlation ID
+  action        String?  // e.g. "BootNotification", "StatusNotification", "StartTransaction", "MeterValues", "StopTransaction", "RemoteStartTransaction"
+  orderId       String?
+  transactionId Int?
+  payload       Json
+  createdAt     DateTime @default(now())
+
+  @@index([chargerId, createdAt])
+  @@index([orderId])
+  @@index([action])
+}
+
+model MeterValue {
+  id                String           @id @default(cuid())
+  chargerId         String
+  connectorId       String
+  connector         Connector        @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  ocppTransactionId String?
+  ocppTransaction   OcppTransaction? @relation(fields: [ocppTransactionId], references: [id], onDelete: SetNull)
+  orderId           String?
+  order             ChargingOrder?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  sampledAt         DateTime
+  energyRegisterWh  Int              // Standardized integer Wh (REQ-BIL-003)
+  powerW            Int?
+  voltageV          Float?
+  currentA          Float?
+  socPercent        Int?             // Validated 1-100% (0% during Preparing/Finishing filtered)
+  temperatureC      Float?           // Validated gun/cabinet temp (-50C unpopulated BMS offset filtered)
+  rawSampledValue   Json?
+  createdAt         DateTime         @default(now())
+
+  @@index([orderId, sampledAt])
+}
+
+// ============================================================================
+// 6. PAYMENTS, EVENTS & REFUNDS (Phase 1A Simulated + Phase 1B Stripe Ready)
+// ============================================================================
+
+model Payment {
+  id                    String         @id @default(cuid())
+  paymentNo             String         @unique // e.g. "SIM-PAY-20261120-0001"
+  orderId               String
+  order                 ChargingOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  mode                  PaymentMode    @default(SIMULATED)
+  status                PaymentStatus  @default(SIMULATED_PENDING)
+  currency              String         @default("MYR")
+  authorizedAmountSen   Int            @default(0)
+  capturedAmountSen     Int            @default(0)
+  refundedAmountSen     Int            @default(0)
+  isSimulated           Boolean        @default(true) // REQ-BIL-007: Explicit simulated payment flag
+  simulatedLabel        String         @default("SIMULATED - NO REAL FUNDS CHARGED")
+  stripePaymentIntentId String?        @unique // Reserved for Phase 1B
+  failureCode           String?
+  failureMessage        String?
+  settledAt             DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  events                PaymentEvent[]
+  refunds               Refund[]
+}
+
+model PaymentEvent {
+  id              String        @id @default(cuid())
+  paymentId       String
+  payment         Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  eventType       String        // e.g. "SIMULATED_AUTHORIZED", "SIMULATED_SUCCEEDED", "SIMULATED_CANCELLED"
+  externalEventId String?       @unique // Reserved for Phase 1B Stripe webhook event ID idempotency
+  amountSen       Int
+  status          PaymentStatus
+  payload         Json?
+  createdAt       DateTime      @default(now())
+}
+
+model Refund {
+  id             String   @id @default(cuid())
+  paymentId      String
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amountSen      Int
+  reason         String
+  operatorId     String
+  stripeRefundId String?  @unique
+  status         String   @default("COMPLETED")
+  createdAt      DateTime @default(now())
+}
+
+// ============================================================================
+// 7. NOTIFICATIONS, EMAIL DELIVERIES, AUDIT LOGS & ALERTS
+// ============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId   String?
+  title     String
+  body      String
+  type      String   @default("ORDER_UPDATE")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model EmailDelivery {
+  id           String    @id @default(cuid())
+  toEmail      String
+  subject      String
+  templateCode String    // "EMAIL_VERIFY", "PASSWORD_RESET", "ORDER_RECEIPT_SIMULATED", "ALERT_NOTIFICATION"
+  bodyHtml     String
+  orderId      String?
+  status       String    @default("SENT_DEMO") // "SENT_DEMO" | "SENT_SMTP" | "FAILED"
+  errorMessage String?
+  retryCount   Int       @default(0)
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actor       User?    @relation("ActorAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorEmail  String?
+  actorRole   String?
+  action      String   // e.g. "TARIFF_UPDATE", "CHARGER_REMOTE_START", "CHARGER_REMOTE_STOP", "CHARGER_RESET", "UNAUTHORIZED_ATTEMPT", "CUSTOMER_ISSUE_LOGGED"
+  targetType  String   // "CHARGER", "CONNECTOR", "ORDER", "TARIFF", "SITE", "USER"
+  targetId    String
+  reason      String?  // Required for high-risk actions per Section 5 & REQ-ADM-003
+  beforeState Json?
+  afterState  Json?
+  ipAddress   String?
+  isSecurity  Boolean  @default(false) // True for rejected unauthorized attempts per REQ-ADM-002
+  createdAt   DateTime @default(now())
+}
+
+model Alert {
+  id          String        @id @default(cuid())
+  chargerId   String?
+  charger     Charger?      @relation(fields: [chargerId], references: [id], onDelete: SetNull)
+  orderId     String?
+  alertType   String        // "CHARGER_OFFLINE", "ORDER_ANOMALY", "EMAIL_FAILURE", "SECC_HARDWARE_FAULT"
+  severity    AlertSeverity @default(WARNING)
+  status      AlertStatus   @default(OPEN)
+  title       String
+  description String
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime      @default(now())
+}

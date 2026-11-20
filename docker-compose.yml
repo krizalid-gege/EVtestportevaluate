@@ -1,0 +1,71 @@
+version: "3.9"
+
+# Malaysia Self-Operated EV CPO Platform (Phase 1A)
+# Cloud-ready container orchestration for Huawei Cloud ECS/CCI or Alibaba Cloud ECS/ACK
+# (Kuala Lumpur / Singapore Regions)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ev-cpo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ev_cpo_dev}
+      TZ: Asia/Kuala_Lumpur
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ev_cpo_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ocpp-gateway:
+    build:
+      context: .
+      dockerfile: apps/ocpp-gateway/Dockerfile
+    container_name: ev-cpo-ocpp-gateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Kuala_Lumpur
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ev_cpo_dev}?schema=public
+      OCPP_PORT: 9000
+      OCPP_INTERNAL_PORT: 9001
+      OCPP_INTERNAL_SECRET: ${OCPP_INTERNAL_SECRET:-ev-cpo-internal-secret-phase1a}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: ev-cpo-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ocpp-gateway:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Kuala_Lumpur
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ev_cpo_dev}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-ev-cpo-jwt-secret-key-malaysia-phase1a-2026}
+      OCPP_INTERNAL_URL: http://ocpp-gateway:9001
+      OCPP_INTERNAL_SECRET: ${OCPP_INTERNAL_SECRET:-ev-cpo-internal-secret-phase1a}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://charge.evcpo.my}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

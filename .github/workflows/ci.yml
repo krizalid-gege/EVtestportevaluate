@@ -1,0 +1,55 @@
+name: Malaysia EV CPO Phase 1A CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ev_cpo_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Generate Prisma Client & Push Schema
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/ev_cpo_dev?schema=public
+        run: |
+          pnpm db:generate
+          pnpm db:push
+          pnpm db:seed
+
+      - name: Run Unit Tests (Billing, idTag & QuanYao SECC Sanitizer)
+        run: pnpm test:db
